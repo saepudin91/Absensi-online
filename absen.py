@@ -5,6 +5,7 @@ import os
 import io
 import pandas as pd
 import base64
+import json
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -19,8 +20,9 @@ CREDENTIALS_FILE = "credentials.json"
 # ====================================================
 
 # Autentikasi Google API
-credentials = service_account.Credentials.from_service_account_file(
-    CREDENTIALS_FILE,
+# BENAR (pakai secrets dari Streamlit Cloud):
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["google"],
     scopes=["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"]
 )
 
