@@ -60,7 +60,7 @@ if "lat" in location_data and "lon" in location_data:
     st.session_state.latitude = location_data["lat"][0]
     st.session_state.longitude = location_data["lon"][0]
 
-st.title("Absensi Online (Kamera + GPS + Google Sheets + Drive)")
+st.title("Absensi Online")
 
 tipe_absen = st.radio("Pilih jenis absen:", ["Masuk", "Keluar"])
 
