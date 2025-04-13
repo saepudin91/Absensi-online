@@ -21,36 +21,28 @@ credentials = service_account.Credentials.from_service_account_info(
 drive_service = build("drive", "v3", credentials=credentials)
 sheet_service = build("sheets", "v4", credentials=credentials)
 
-# Ambil Lokasi
+# ===================== AMBIL LOKASI =====================
+query_params = st.query_params
+if "lat" in query_params and "lon" in query_params:
+    st.session_state.latitude = query_params["lat"][0]
+    st.session_state.longitude = query_params["lon"][0]
+
 st.components.v1.html("""
 <script>
 navigator.geolocation.getCurrentPosition(
   function(position) {
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
-    window.parent.postMessage({latitude: latitude, longitude: longitude}, "*");
+    window.location.search = "?lat=" + latitude + "&lon=" + longitude;
+  },
+  function(error) {
+    alert("Gagal mengambil lokasi. Coba izinkan akses lokasi di browser.");
   }
 )
 </script>
 """, height=0)
 
-location_data = st.query_params
-st.markdown("""
-<script>
-window.addEventListener('message', (e) => {
-    const lat = e.data.latitude;
-    const lon = e.data.longitude;
-    if(lat && lon){
-        window.location.href='/?lat='+lat+'&lon='+lon;
-    }
-})
-</script>
-""", unsafe_allow_html=True)
-
-if "lat" in location_data and "lon" in location_data:
-    st.session_state.latitude = location_data["lat"][0]
-    st.session_state.longitude = location_data["lon"][0]
-
+# ===================== TAMPILAN UTAMA =====================
 st.title("Absensi Online")
 
 # ===================== FORM ABSENSI =====================
@@ -68,18 +60,17 @@ with st.expander("Form Absensi", expanded=True):
         camera_image = st.camera_input("Ambil foto sekarang")
 
         if camera_image:
-            # Ambil waktu absen saat ini
             now = datetime.now()
             tanggal = now.strftime("%Y-%m-%d")
             jam = now.strftime("%H:%M:%S")
             nama_file = f"absen_{now.strftime('%Y%m%d_%H%M%S')}.png"
 
-            # Simpan foto ke Drive
             image = Image.open(camera_image)
             image_bytes = io.BytesIO()
             image.save(image_bytes, format='PNG')
             image_bytes.seek(0)
 
+            # Upload ke Google Drive
             file_metadata = {'name': nama_file, 'parents': [FOLDER_ID]}
             media = MediaIoBaseUpload(image_bytes, mimetype='image/png')
             uploaded_file = drive_service.files().create(
@@ -88,7 +79,7 @@ with st.expander("Form Absensi", expanded=True):
             file_id = uploaded_file.get("id")
             file_link = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
 
-            # Simpan data ke Google Sheets
+            # Simpan ke Google Sheet
             row = [
                 nama_file,
                 tanggal,
@@ -123,12 +114,16 @@ with st.expander("Rekap Data Absensi", expanded=True):
                 st.info("Belum ada data absensi.")
             else:
                 df = pd.DataFrame(data, columns=["Nama File", "Tanggal", "Masuk", "Keluar", "Link Foto", "Latitude", "Longitude"])
-                tanggal_list = sorted(df["Tanggal"].unique())
-                selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + tanggal_list)
+                df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors="coerce").dt.date
+
+                tanggal_list = sorted(df["Tanggal"].dropna().unique())
+                selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + list(map(str, tanggal_list)))
+
                 absen_filter = st.selectbox("Pilih Jenis Absen", ["Semua", "Masuk", "Keluar"])
 
                 if selected_date != "Semua":
-                    df = df[df["Tanggal"] == selected_date]
+                    df = df[df["Tanggal"] == pd.to_datetime(selected_date).date()]
+                
                 if absen_filter == "Masuk":
                     df = df[df["Masuk"] != ""]
                 elif absen_filter == "Keluar":
@@ -138,10 +133,8 @@ with st.expander("Rekap Data Absensi", expanded=True):
                     st.info("Tidak ada data yang sesuai dengan filter.")
                 else:
                     st.dataframe(df)
-
-                    # Download Excel
                     excel_file = io.BytesIO()
                     df.to_excel(excel_file, index=False)
                     st.download_button("Download Rekap Excel", data=excel_file.getvalue(), file_name="rekap_absensi.xlsx")
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat menampilkan rekap: {e}")
+            st.error(f"Terjadi kesalahan: {e}")
