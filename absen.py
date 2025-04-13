@@ -110,15 +110,21 @@ with st.expander("Form Absensi", expanded=True):
 # ===================== FITUR REKAP =====================
 with st.expander("Rekap Data Absensi", expanded=False):
     if st.button("Tampilkan Rekap Data"):
+        # Mengambil data dari Google Sheets
         data = sheet_service.spreadsheets().values().get(
             spreadsheetId=SHEET_ID,
             range=f"{SHEET_NAME}!A2:G"
         ).execute().get("values", [])
 
         if data:
+            # Membuat DataFrame dari data yang diambil
             df = pd.DataFrame(data, columns=["Nama File", "Tanggal", "Masuk", "Keluar", "Link Foto", "Latitude", "Longitude"])
+
+            # Menyaring data berdasarkan tanggal
             tanggal_list = sorted(df["Tanggal"].unique())
             selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + tanggal_list)
+
+            # Menyaring berdasarkan jenis absen
             absen_filter = st.selectbox("Pilih Jenis Absen", ["Semua", "Masuk", "Keluar"])
 
             if selected_date != "Semua":
@@ -128,8 +134,10 @@ with st.expander("Rekap Data Absensi", expanded=False):
             elif absen_filter == "Keluar":
                 df = df[df["Keluar"] != ""]
 
+            # Menampilkan data
             st.dataframe(df)
 
+            # Menyediakan opsi untuk mengunduh rekap data dalam format Excel
             excel_file = io.BytesIO()
             df.to_excel(excel_file, index=False)
             st.download_button("Download Rekap Excel", data=excel_file.getvalue(), file_name="rekap_absensi.xlsx")
