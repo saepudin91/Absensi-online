@@ -108,38 +108,46 @@ with st.expander("Form Absensi", expanded=True):
             st.write(f"Lokasi: {st.session_state.get('latitude', '')}, {st.session_state.get('longitude', '')}")
 
 # ===================== FITUR REKAP =====================
-with st.expander("Rekap Data Absensi", expanded=False):
+with st.expander("Rekap Data Absensi", expanded=True):  # Expander set to expanded=True
     if st.button("Tampilkan Rekap Data"):
-        # Mengambil data dari Google Sheets
-        data = sheet_service.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range=f"{SHEET_NAME}!A2:G"
-        ).execute().get("values", [])
+        try:
+            # Mengambil data dari Google Sheets
+            data = sheet_service.spreadsheets().values().get(
+                spreadsheetId=SHEET_ID,
+                range=f"{SHEET_NAME}!A2:G"
+            ).execute().get("values", [])
 
-        if data:
-            # Membuat DataFrame dari data yang diambil
-            df = pd.DataFrame(data, columns=["Nama File", "Tanggal", "Masuk", "Keluar", "Link Foto", "Latitude", "Longitude"])
+            if not data:
+                st.info("Belum ada data absensi.")
+            else:
+                # Membuat DataFrame dari data yang diambil
+                df = pd.DataFrame(data, columns=["Nama File", "Tanggal", "Masuk", "Keluar", "Link Foto", "Latitude", "Longitude"])
 
-            # Menyaring data berdasarkan tanggal
-            tanggal_list = sorted(df["Tanggal"].unique())
-            selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + tanggal_list)
+                # Menampilkan pilihan filter
+                tanggal_list = sorted(df["Tanggal"].unique())
+                selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + tanggal_list)
 
-            # Menyaring berdasarkan jenis absen
-            absen_filter = st.selectbox("Pilih Jenis Absen", ["Semua", "Masuk", "Keluar"])
+                absen_filter = st.selectbox("Pilih Jenis Absen", ["Semua", "Masuk", "Keluar"])
 
-            if selected_date != "Semua":
-                df = df[df["Tanggal"] == selected_date]
-            if absen_filter == "Masuk":
-                df = df[df["Masuk"] != ""]
-            elif absen_filter == "Keluar":
-                df = df[df["Keluar"] != ""]
+                # Penyaringan berdasarkan tanggal
+                if selected_date != "Semua":
+                    df = df[df["Tanggal"] == selected_date]
+                
+                # Penyaringan berdasarkan jenis absen
+                if absen_filter == "Masuk":
+                    df = df[df["Masuk"] != ""]
+                elif absen_filter == "Keluar":
+                    df = df[df["Keluar"] != ""]
 
-            # Menampilkan data
-            st.dataframe(df)
+                # Menampilkan data yang sudah difilter
+                if df.empty:
+                    st.info("Tidak ada data yang sesuai dengan filter.")
+                else:
+                    st.dataframe(df)
 
-            # Menyediakan opsi untuk mengunduh rekap data dalam format Excel
-            excel_file = io.BytesIO()
-            df.to_excel(excel_file, index=False)
-            st.download_button("Download Rekap Excel", data=excel_file.getvalue(), file_name="rekap_absensi.xlsx")
-        else:
-            st.info("Belum ada data absensi.")
+                    # Menyediakan opsi untuk mengunduh rekap data dalam format Excel
+                    excel_file = io.BytesIO()
+                    df.to_excel(excel_file, index=False)
+                    st.download_button("Download Rekap Excel", data=excel_file.getvalue(), file_name="rekap_absensi.xlsx")
+        except Exception as e:
+            st.error(f"Terjadi kesalahan: {e}")
