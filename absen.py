@@ -68,11 +68,13 @@ with st.expander("Form Absensi", expanded=True):
         camera_image = st.camera_input("Ambil foto sekarang")
 
         if camera_image:
+            # Ambil waktu absen saat ini
             now = datetime.now()
             tanggal = now.strftime("%Y-%m-%d")
             jam = now.strftime("%H:%M:%S")
             nama_file = f"absen_{now.strftime('%Y%m%d_%H%M%S')}.png"
 
+            # Simpan foto ke Drive
             image = Image.open(camera_image)
             image_bytes = io.BytesIO()
             image.save(image_bytes, format='PNG')
@@ -86,6 +88,7 @@ with st.expander("Form Absensi", expanded=True):
             file_id = uploaded_file.get("id")
             file_link = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
 
+            # Simpan data ke Google Sheets
             row = [
                 nama_file,
                 tanggal,
@@ -108,50 +111,37 @@ with st.expander("Form Absensi", expanded=True):
             st.write(f"Lokasi: {st.session_state.get('latitude', '')}, {st.session_state.get('longitude', '')}")
 
 # ===================== FITUR REKAP =====================
-with st.expander("Rekap Data Absensi", expanded=True):  # Expander set to expanded=True
+with st.expander("Rekap Data Absensi", expanded=True):
     if st.button("Tampilkan Rekap Data"):
         try:
-            # Mengambil data dari Google Sheets
-            st.write("Mengambil data dari Google Sheets...")
             data = sheet_service.spreadsheets().values().get(
                 spreadsheetId=SHEET_ID,
                 range=f"{SHEET_NAME}!A2:G"
             ).execute().get("values", [])
-            
-            # Log data yang diambil dari Sheets
-            st.write(f"Data yang diambil: {data}")
 
             if not data:
                 st.info("Belum ada data absensi.")
             else:
-                # Membuat DataFrame dari data yang diambil
                 df = pd.DataFrame(data, columns=["Nama File", "Tanggal", "Masuk", "Keluar", "Link Foto", "Latitude", "Longitude"])
-
-                # Menampilkan pilihan filter
                 tanggal_list = sorted(df["Tanggal"].unique())
                 selected_date = st.selectbox("Pilih Tanggal", options=["Semua"] + tanggal_list)
-
                 absen_filter = st.selectbox("Pilih Jenis Absen", ["Semua", "Masuk", "Keluar"])
 
-                # Penyaringan berdasarkan tanggal
                 if selected_date != "Semua":
                     df = df[df["Tanggal"] == selected_date]
-                
-                # Penyaringan berdasarkan jenis absen
                 if absen_filter == "Masuk":
                     df = df[df["Masuk"] != ""]
                 elif absen_filter == "Keluar":
                     df = df[df["Keluar"] != ""]
 
-                # Menampilkan data yang sudah difilter
                 if df.empty:
                     st.info("Tidak ada data yang sesuai dengan filter.")
                 else:
                     st.dataframe(df)
 
-                    # Menyediakan opsi untuk mengunduh rekap data dalam format Excel
+                    # Download Excel
                     excel_file = io.BytesIO()
                     df.to_excel(excel_file, index=False)
                     st.download_button("Download Rekap Excel", data=excel_file.getvalue(), file_name="rekap_absensi.xlsx")
         except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
+            st.error(f"Terjadi kesalahan saat menampilkan rekap: {e}")
