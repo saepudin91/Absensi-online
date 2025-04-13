@@ -112,10 +112,14 @@ with st.expander("Rekap Data Absensi", expanded=True):  # Expander set to expand
     if st.button("Tampilkan Rekap Data"):
         try:
             # Mengambil data dari Google Sheets
+            st.write("Mengambil data dari Google Sheets...")
             data = sheet_service.spreadsheets().values().get(
                 spreadsheetId=SHEET_ID,
                 range=f"{SHEET_NAME}!A2:G"
             ).execute().get("values", [])
+            
+            # Log data yang diambil dari Sheets
+            st.write(f"Data yang diambil: {data}")
 
             if not data:
                 st.info("Belum ada data absensi.")
